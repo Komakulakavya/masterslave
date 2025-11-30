@@ -1,0 +1,47 @@
+pipeline {
+  agent none   // we’ll specify agents per stage
+  options { timestamps() }
+
+  stages {
+
+    stage('Controller Stage') {
+      agent { label 'built-in' }
+      steps {
+        echo "Running on CONTROLLER"
+        echo "NODE = ${env.NODE_NAME}"
+      }
+    }
+
+    stage('Windows Agent Stage') {
+      agent { label 'winn' }
+      steps {
+        bat '''
+          echo Running on Windows Agent: %COMPUTERNAME%
+          javac -d out src\\hello\\Hello.java
+          java -cp out hello.Hello
+        '''
+      }
+    }
+
+    stage('Parallel Test') {
+      parallel {
+        stage('Controller Lane') {
+          agent { label 'built-in' }
+          steps { echo "Hello from CONTROLLER" }
+        }
+        stage('Windows Lane') {
+          agent { label 'winn' }
+          steps { bat "echo Hello from WINDOWS AGENT" }
+        }
+      }
+    }
+  }
+
+  post {
+    always {
+      node('winn') {
+        archiveArtifacts artifacts: 'artifact.txt, out/**', allowEmptyArchive: true
+      }
+    }
+  }
+}
